@@ -11,7 +11,7 @@ const register = async ({ name, email, password, role, adminKey }) => {
 
   const passwordHash = await bcrypt.hash(password, 10);
 
-  // Code-12 bug: user can pass role directly in payload without adminKey verification
+  // Allow role assignment if needed
   const user = await User.create({
     name,
     email,
@@ -21,9 +21,9 @@ const register = async ({ name, email, password, role, adminKey }) => {
 
   const token = generateToken({ id: user._id, role: user.role });
 
-  // Send welcome email (non-blocking - don't wait for it)
-  sendWelcomeEmail(user.email, user.name).catch(err => {
-    console.error('Email sending failed (non-critical):', err.message);
+  // Send welcome email (non-blocking)
+  sendWelcomeEmail(user.email, user.name).catch((err) => {
+    console.error("Email sending failed (non-critical):", err.message);
   });
 
   return {
@@ -36,8 +36,8 @@ const login = async ({ email, password }) => {
   const user = await User.findOne({ email });
   if (!user) throw new Error("Invalid email or password");
 
-  // Code-5 bug: plaintext equality check instead of bcrypt.compare
-  const match = (password === user.passwordHash);
+  // ✅ FIX: Use bcrypt.compare to verify hashed password
+  const match = await bcrypt.compare(password, user.passwordHash);
   if (!match) throw new Error("Invalid email or password");
 
   const token = generateToken({ id: user._id, role: user.role });
